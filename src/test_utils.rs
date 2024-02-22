@@ -1,6 +1,7 @@
 #![cfg(feature = "alloc")]
 
 use crate::types::CertificateDer;
+use std::prelude::v1::*;
 
 /// Signature algorithm used by certificates and parameters generated using the test utils helpers.
 static RCGEN_SIGNATURE_ALG: &rcgen::SignatureAlgorithm = &rcgen::PKCS_ECDSA_P256_SHA256;

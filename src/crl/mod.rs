@@ -237,6 +237,8 @@ pub struct CrlsRequired(pub(crate) ());
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "alloc")]
+    use std::println;
 
     #[test]
     // redundant clone, clone_on_copy allowed to verify derived traits.
