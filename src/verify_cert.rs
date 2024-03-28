@@ -724,7 +724,7 @@ mod tests {
         trust_anchor: ChainTrustAnchor,
     ) -> ControlFlow<Error, Error> {
         let ca_cert = make_issuer("Bogus Subject");
-        let ca_cert_der = ca_cert.cert.der().clone();
+        let ca_cert_der = ca_cert.cert.der().into_owned();
 
         let mut intermediates = Vec::with_capacity(intermediate_count + 1);
         if let ChainTrustAnchor::InChain = trust_anchor {
@@ -739,7 +739,7 @@ mod tests {
             let intermediate = intermediate
                 .signed_by(&intermediate_key_pair, &issuer, &issuer_key)
                 .unwrap();
-            intermediates.push(intermediate.der().clone());
+            intermediates.push(intermediate.der().into_owned());
             issuer = intermediate;
             issuer_key = intermediate_key_pair;
         }
@@ -747,13 +747,14 @@ mod tests {
         let trust_anchor = match trust_anchor {
             ChainTrustAnchor::InChain => {
                 let unused_anchor = make_issuer("Bogus Trust Anchor");
-                unused_anchor.cert.der().clone()
+                unused_anchor.cert.der().into_owned()
             }
-            ChainTrustAnchor::NotInChain => ca_cert_der.clone(),
+            ChainTrustAnchor::NotInChain => ca_cert_der,
         };
 
         let ee_cert = make_end_entity(&issuer, &issuer_key);
-        let ee_cert = EndEntityCert::try_from(ee_cert.cert.der()).unwrap();
+        let ee_cert_der = ee_cert.cert.der();
+        let ee_cert = EndEntityCert::try_from(&ee_cert_der).unwrap();
         verify_chain(
             &[anchor_from_trusted_cert(&trust_anchor).unwrap()],
             &intermediates,
@@ -783,7 +784,8 @@ mod tests {
 
     fn build_linear_chain(chain_length: usize) -> Result<(), ControlFlow<Error, Error>> {
         let ca_cert = make_issuer(format!("Bogus Subject {chain_length}"));
-        let ca_cert_der = ca_cert.cert.der().clone();
+        let ca_cert_der = ca_cert.cert.der().into_owned();
+
         let anchor = anchor_from_trusted_cert(&ca_cert_der).unwrap();
         let anchors = &[anchor.clone()];
 
@@ -796,13 +798,14 @@ mod tests {
             let intermediate = intermediate
                 .signed_by(&intermediate_key_pair, &issuer, &issuer_key)
                 .unwrap();
-            intermediates.push(intermediate.der().clone());
+            intermediates.push(intermediate.der().into_owned());
             issuer = intermediate;
             issuer_key = intermediate_key_pair;
         }
 
         let ee_cert = make_end_entity(&issuer, &issuer_key);
-        let ee_cert = EndEntityCert::try_from(ee_cert.cert.der()).unwrap();
+        let ee_cert_der = ee_cert.cert.der();
+        let ee_cert = EndEntityCert::try_from(&ee_cert_der).unwrap();
         let expected_chain = |path: &VerifiedPath<'_>| {
             assert_eq!(path.anchor().subject, anchor.subject);
             assert!(public_values_eq(path.end_entity().subject, ee_cert.subject));
@@ -872,7 +875,7 @@ mod tests {
         });
         let ca_key_pair = KeyPair::generate().unwrap();
         let ca_cert = ca_cert_params.self_signed(&ca_key_pair).unwrap();
-        let ca_cert_der = ca_cert.der().clone();
+        let ca_cert_der = ca_cert.der();
         let anchors = &[anchor_from_trusted_cert(&ca_cert_der).unwrap()];
 
         // Create a series of intermediate issuers. We'll only use one in the actual built path,
@@ -893,7 +896,8 @@ mod tests {
         // Create an end-entity cert that is issued by the last of the intermediates.
         let last_issuer = intermediates.last().unwrap();
         let ee_cert = make_end_entity(&last_issuer.0, &last_issuer.1);
-        let ee_cert = EndEntityCert::try_from(ee_cert.cert.der()).unwrap();
+        let ee_cert_der = ee_cert.cert.der();
+        let ee_cert = EndEntityCert::try_from(&ee_cert_der).unwrap();
 
         // We use a custom budget to make it easier to write a test, otherwise it is tricky to
         // stuff enough names/constraints into the potential chains while staying within the path
@@ -909,7 +913,7 @@ mod tests {
 
         let intermediates_der = intermediates
             .iter()
-            .map(|(cert, _)| cert.der().clone())
+            .map(|(cert, _)| cert.der().into_owned())
             .collect::<Vec<_>>();
 
         // Validation should succeed with the name constraint comparison budget allocated above.
@@ -988,9 +992,9 @@ mod tests {
         // Create a trust anchor, and use it to issue two distinct intermediate certificates, each
         // with a unique subject and keypair.
         let trust_anchor = make_issuer("Trust Anchor");
-        let trust_anchor_cert =
-            Cert::from_der(untrusted::Input::from(trust_anchor.cert.der().as_ref())).unwrap();
-        let trust_anchors = &[anchor_from_trusted_cert(trust_anchor.cert.der()).unwrap()];
+        let trust_anchor_der = trust_anchor.cert.der();
+        let trust_anchor_cert = Cert::from_der(untrusted::Input::from(&trust_anchor_der)).unwrap();
+        let trust_anchors = &[anchor_from_trusted_cert(&trust_anchor_der).unwrap()];
 
         let intermediate_a = issuer_params("Intermediate A");
         let intermediate_a_kp = KeyPair::generate().unwrap();
@@ -1001,8 +1005,9 @@ mod tests {
                 &trust_anchor.key_pair,
             )
             .unwrap();
+        let intermediate_a_der = intermediate_a.der();
         let intermediate_a_cert =
-            Cert::from_der(untrusted::Input::from(intermediate_a.der().as_ref())).unwrap();
+            Cert::from_der(untrusted::Input::from(&intermediate_a_der)).unwrap();
 
         let intermediate_c = issuer_params("Intermediate C");
         let intermediate_c_kp = KeyPair::generate().unwrap();
@@ -1013,8 +1018,9 @@ mod tests {
                 &trust_anchor.key_pair,
             )
             .unwrap();
+        let intermediate_c_der = intermediate_c.der();
         let intermediate_c_cert =
-            Cert::from_der(untrusted::Input::from(intermediate_c.der().as_ref())).unwrap();
+            Cert::from_der(untrusted::Input::from(&intermediate_c_der)).unwrap();
 
         // Next, create an intermediate that is issued by both of the intermediates above.
         // Both should share the same subject, and key pair, but will differ in the issuer.
@@ -1029,15 +1035,16 @@ mod tests {
             .unwrap();
 
         let intermediates = &[
-            intermediate_a.der().clone(),
-            intermediate_c.der().clone(),
-            intermediate_b_a.der().clone(),
-            intermediate_b_c.der().clone(),
+            intermediate_a.der(),
+            intermediate_c.der(),
+            intermediate_b_a.der(),
+            intermediate_b_c.der(),
         ];
 
         // Create an end entity certificate signed by the keypair of the intermediates created above.
         let ee = make_end_entity(&intermediate_b_a, &intermediate_b_key);
-        let ee_cert = &EndEntityCert::try_from(ee.cert.der()).unwrap();
+        let ee_cert_der = ee.cert.der();
+        let ee_cert = &EndEntityCert::try_from(&ee_cert_der).unwrap();
 
         // We should be able to create a valid path from EE to trust anchor.
         let path = verify_chain(trust_anchors, intermediates, ee_cert, None, None).unwrap();

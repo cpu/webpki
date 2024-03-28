@@ -348,8 +348,7 @@ dependencies = [
 [[package]]
 name = "rcgen"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa96feb4d337a43eae1b39b6d4cafc2860a46cf9cec6f1e65294244ece65e348"
+source = "git+https://github.com/cpu/rcgen?rev=2069697b92999407cf59d201dfd924c1f493792f#2069697b92999407cf59d201dfd924c1f493792f"
 dependencies = [
  "aws-lc-rs",
  "rustls-pki-types",

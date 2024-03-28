@@ -113,3 +113,6 @@ codegen-units = 1
 name = "benchmarks"
 path = "benches/benchmark.rs"
 harness = false
+
+[patch.crates-io]
+rcgen = { git = "https://github.com/cpu/rcgen", rev = "2069697b92999407cf59d201dfd924c1f493792f" }

@@ -212,7 +212,7 @@ mod tests {
                 .expect("failed to make ee cert (this is a test bug)")
         };
 
-        expect_dns_name(ee_cert.der(), DNS_NAME);
+        expect_dns_name(&ee_cert.der(), DNS_NAME);
     }
 
     // This test reproduces https://github.com/rustls/webpki/issues/167 --- an
