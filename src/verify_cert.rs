@@ -978,24 +978,7 @@ mod tests {
         trust_anchor: ChainTrustAnchor,
     ) -> ControlFlow<Error, Error> {
         let ca_cert = make_issuer("Bogus Subject");
-
-        let mut intermediates: Vec<CertifiedKey> = Vec::with_capacity(intermediate_count);
-        for i in 0..intermediate_count {
-            let (issuer, issuer_key) = if i == 0 {
-                (&ca_cert.cert, &ca_cert.key_pair)
-            } else {
-                (&intermediates[i - 1].cert, &intermediates[i - 1].key_pair)
-            };
-            let intermediate = issuer_params("Bogus Subject".to_string());
-            let intermediate_key_pair = make_keypair();
-            let intermediate = intermediate
-                .signed_by(&intermediate_key_pair, issuer, issuer_key)
-                .unwrap();
-            intermediates.push(CertifiedKey {
-                cert: intermediate,
-                key_pair: intermediate_key_pair,
-            });
-        }
+        let intermediates = build_linear_chain(&ca_cert, intermediate_count, true);
 
         let verify_trust_anchor = match trust_anchor {
             ChainTrustAnchor::InChain => make_issuer("Bogus Trust Anchor"),
@@ -1030,24 +1013,7 @@ mod tests {
 
     fn build_and_verify_linear_chain(chain_length: usize) -> Result<(), ControlFlow<Error, Error>> {
         let ca_cert = make_issuer(format!("Bogus Subject {chain_length}"));
-
-        let mut intermediates: Vec<CertifiedKey> = Vec::with_capacity(chain_length);
-        for i in 0..chain_length {
-            let (issuer, issuer_key) = if i == 0 {
-                (&ca_cert.cert, &ca_cert.key_pair)
-            } else {
-                (&intermediates[i - 1].cert, &intermediates[i - 1].key_pair)
-            };
-            let intermediate = issuer_params(format!("Bogus Subject {i}"));
-            let intermediate_key_pair = make_keypair();
-            let intermediate = intermediate
-                .signed_by(&intermediate_key_pair, issuer, issuer_key)
-                .unwrap();
-            intermediates.push(CertifiedKey {
-                cert: intermediate,
-                key_pair: intermediate_key_pair,
-            });
-        }
+        let intermediates = build_linear_chain(&ca_cert, chain_length, false);
 
         let ca_cert_der: CertificateDer<'_> = ca_cert.cert.into();
         let anchor = anchor_from_trusted_cert(&ca_cert_der).unwrap();
@@ -1100,6 +1066,34 @@ mod tests {
             None,
         )
         .map(|_| ())
+    }
+
+    fn build_linear_chain(
+        ca_cert: &CertifiedKey,
+        chain_length: usize,
+        all_same_subject: bool,
+    ) -> Vec<CertifiedKey> {
+        let mut intermediates: Vec<CertifiedKey> = Vec::with_capacity(chain_length);
+        for i in 0..chain_length {
+            let (issuer, issuer_key) = if i == 0 {
+                (&ca_cert.cert, &ca_cert.key_pair)
+            } else {
+                (&intermediates[i - 1].cert, &intermediates[i - 1].key_pair)
+            };
+            let intermediate = issuer_params(match all_same_subject {
+                true => "Bogus Subject".to_string(),
+                false => format!("Bogus Subject {i}"),
+            });
+            let intermediate_key_pair = make_keypair();
+            let intermediate = intermediate
+                .signed_by(&intermediate_key_pair, issuer, issuer_key)
+                .unwrap();
+            intermediates.push(CertifiedKey {
+                cert: intermediate,
+                key_pair: intermediate_key_pair,
+            });
+        }
+        intermediates
     }
 
     fn verify_chain<'a>(
