@@ -546,7 +546,7 @@ impl<'a> IssuingDistributionPoint<'a> {
             }
         }
 
-        // RFC 5280 section §4.2.1.13:
+        // RFC 5280 §5.2.5:
         der::nested(
             &mut untrusted::Reader::new(der),
             Tag::Sequence,
@@ -581,7 +581,7 @@ impl<'a> IssuingDistributionPoint<'a> {
             },
         )?;
 
-        // RFC 5280 4.2.1.10:
+        // RFC 5280 §5.2.5:
         //   Conforming CRLs issuers MUST set the onlyContainsAttributeCerts boolean to FALSE.
         if result.only_contains_attribute_certs {
             return Err(Error::MalformedExtensions);
